@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import asyncio
 from datetime import datetime
 
 from data.db import persist_market_snapshot
@@ -10,7 +11,7 @@ from scrapers.coto_scraper import (
 )
 from scrapers.carrefour_dia_scraper import (
     getCategoriesSlug,
-    scrapeProducts
+    run_all_categories_async
 )
 
 DIA_CATEGORIES_PARAMS = {
@@ -89,19 +90,18 @@ def run_carrefour():
             return
         print(f"[DEBUG] Scraping only categories: {carrefour_categories}")
 
-    all_products_unified = []
-    total_saved = 0
-
-    for category in sorted(carrefour_categories):
-        product_cats = scrapeProducts(
-            url_market,
-            category=category,
-            map_value="c",
-            **COMMON_SEARCH_PARAMS
-        ) or []
-
-        all_products_unified.extend(product_cats)
-        total_saved += len(product_cats)
+    print(f"Categories to scrape: {len(carrefour_categories)}")
+    
+    all_products_unified = asyncio.run(run_all_categories_async(
+        url_market,
+        carrefour_categories,
+        hash_value=COMMON_SEARCH_PARAMS["hash_value"],
+        sender=COMMON_SEARCH_PARAMS["sender"],
+        provider=COMMON_SEARCH_PARAMS["provider"],
+        map_value="c"
+    ))
+    
+    total_saved = len(all_products_unified)
 
     if all_products_unified:
         filepath = save_market_snapshot(market_name, all_products_unified)
@@ -137,19 +137,18 @@ def run_dia():
             return
         print(f"[DEBUG] Scraping only categories: {dia_categories}")
 
-    all_products_unified = []
-    total_saved = 0
-
-    for category in sorted(dia_categories):
-        products_cat = scrapeProducts(
-            url_market,
-            category=category,
-            map_value="c",
-            **COMMON_SEARCH_PARAMS
-        ) or []
-
-        all_products_unified.extend(products_cat)
-        total_saved += len(products_cat)
+    print(f"Categories to scrape: {len(dia_categories)}")
+    
+    all_products_unified = asyncio.run(run_all_categories_async(
+        url_market,
+        dia_categories,
+        hash_value=COMMON_SEARCH_PARAMS["hash_value"],
+        sender=COMMON_SEARCH_PARAMS["sender"],
+        provider=COMMON_SEARCH_PARAMS["provider"],
+        map_value="c"
+    ))
+    
+    total_saved = len(all_products_unified)
 
     if all_products_unified:
         filepath = save_market_snapshot(market_name, all_products_unified)

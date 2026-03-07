@@ -2,7 +2,8 @@ from bdb import effective
 from dataclasses import is_dataclass
 from bs4 import BeautifulSoup
 from idna import intranges_contain
-import math, random, time, os, requests, json, re
+import math, random, time, os, requests, json, re, asyncio
+import aiohttp
 from datetime import datetime, timezone
 from scrapers.coto_scraper import get_attr
 from utils.pricing import pick_prices
@@ -111,24 +112,8 @@ def getCategoriesSlug (url_market, hash_value, sender, provider):
 
     return clean_categories
 
-def scrapeProducts(url_market, category, hash_value, sender, provider, map_value):
+async def scrapeProducts(session, url_market, category, hash_value, sender, provider, map_value):
     market_name = "carrefour" if "carrefour" in url_market else "dia"
-
-    '''
-    # DEBUG
-    stats = {
-        "total_api_products": 0,
-        "saved": 0,
-        "no_items": 0,
-        "no_sellers": 0,
-        "no_offer": 0,
-        "no_price": 0,
-        "price_le_0": 0,
-        "exceptions": 0,
-        "empty_pages": 0,
-        "last_page_from": None,
-        "last_page_to": None,
-    }'''
 
     from_value = 0
     to_value = 1
@@ -166,14 +151,18 @@ def scrapeProducts(url_market, category, hash_value, sender, provider, map_value
         }
     }
 
-    response_GetProducts = requests.post(url, headers=headers, json=payload_base)
-    if response_GetProducts.status_code != 200:
-        print(f"{category} - Error {response_GetProducts.status_code}")
-        return []
+    try:
+        async with session.post(url, headers=headers, json=payload_base) as response_GetProducts:
+            if response_GetProducts.status != 200:
+                print(f"{category} - Error {response_GetProducts.status}")
+                return []
+            data = await response_GetProducts.json()
+    except Exception as e:
+         print(f"{category} - Exception on first poll: {e}")
+         return []
 
-    product_search = response_GetProducts.json().get("data", {}).get("productSearch")
+    product_search = data.get("data", {}).get("productSearch")
     if not product_search or not product_search.get("recordsFiltered"):
-        print(f"{category}: products not found.")
         return []
 
     total_products = product_search["recordsFiltered"]
@@ -192,25 +181,27 @@ def scrapeProducts(url_market, category, hash_value, sender, provider, map_value
     while True:
         page_from = i
         page_to = i + page_size - 1
-        #stats["last_page_from"] = page_from
-        #stats["last_page_to"] = page_to
 
         payload = payload_base.copy()
         payload["variables"] = payload_base["variables"].copy()
         payload["variables"]["from"] = page_from
         payload["variables"]["to"] = page_to
 
-        response = requests.post(url, headers=headers, json=payload)
-
-        if response.status_code != 200:
-            print(f"Error {response.status_code} paging {category} [{page_from}–{page_to}]")
-            break
-
         try:
-            data = response.json()
-        except json.JSONDecodeError:
-            print(f"{category} - Error parsing JSON in range {page_from}–{page_to}")
-            print("Raw Response:", response.text[:300])
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status != 200:
+                    print(f"Error {response.status} paging {category} [{page_from}–{page_to}]")
+                    break
+
+                try:
+                    data = await response.json()
+                except Exception:
+                    text = await response.text()
+                    print(f"{category} - Error parsing JSON in range {page_from}–{page_to}")
+                    print("Raw Response:", text[:300])
+                    break
+        except Exception as e:
+            print(f"Exception on {category} at page {page_from}: {e}")
             break
 
         product_search = (data.get("data", {}) or {}).get("productSearch") or {}
@@ -218,49 +209,29 @@ def scrapeProducts(url_market, category, hash_value, sender, provider, map_value
 
         if not products:
             empty_pages += 1
-            #stats["empty_pages"] = empty_pages
-            print(f"{category} - Empty/No products in range {page_from}–{page_to}")
-
             if is_dia and empty_pages >= MAX_EMPTY_PAGES:
                 break
-
             if not is_dia:
                 break
-
             i += page_size
             continue
 
         empty_pages = 0
-        #stats["empty_pages"] = 0
 
         for prd in products:
-            #stats["total_api_products"] += 1
             try:
                 items = prd.get("items") or []
-                '''if not items:
-                    stats["no_items"] += 1
-                    continue'''
-
                 item0 = items[0]
 
                 product_reference = prd.get("productReference")
                 ean = item0.get("ean") or product_reference
 
                 sellers = item0.get("sellers") or []
-                '''if not sellers:
-                    stats["no_sellers"] += 1
-                    continue'''
-
                 offer = best_offer_from_sellers(sellers)
                 if offer is None:
-                    #stats["no_price"] += 1
-                    #print(f"NO OFFER: {prd.get('productId')} - {prd.get('productName')}")
                     continue
 
                 effective_price, regular_price = pick_prices(offer)
-                '''if price is None or price <= 0:
-                    stats["no_price"] += 1
-                    continue'''
 
                 # basics
                 product_name = prd.get("productName")
@@ -378,24 +349,39 @@ def scrapeProducts(url_market, category, hash_value, sender, provider, map_value
                     "measurementUnit": measurement_unit,
                     "unitMultiplier": unit_multiplier,
                     "priceValidUntil": price_valid_until,
-                    # "page_from": page_from,
-                    # "page_to": page_to,
                 }
 
                 allProducts.append(filtered)
-                #stats["saved"] += 1
-
             except Exception as e:
-                print("ERROR:", repr(e), "productId:", prd.get("productId"), "name:", prd.get("productName"))
-                raise
-
+                pass
+                
         if len(products) < page_size:
             break
 
         i += page_size
 
-    #print(f"{category} debug stats: {stats}", flush=True)
-
-    saved_count = len(allProducts)
-    print(f"{category}: {saved_count} products saved.")
     return allProducts
+
+async def _bounded_scrape(semaphore, session, url_market, category, hash_value, sender, provider, map_value):
+    async with semaphore:
+        return await scrapeProducts(session, url_market, category, hash_value, sender, provider, map_value)
+
+async def run_all_categories_async(url_market, categories, hash_value, sender, provider, map_value, max_concurrent=20):
+    semaphore = asyncio.Semaphore(max_concurrent)
+    all_products_unified = []
+    
+    # We use a single TCP connection pool session across all category coroutines
+    connector = aiohttp.TCPConnector(limit=max_concurrent)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        tasks = []
+        for cat in sorted(categories):
+            tasks.append(_bounded_scrape(semaphore, session, url_market, cat, hash_value, sender, provider, map_value))
+        
+        # Gather all categoriy results concurrently
+        results = await asyncio.gather(*tasks)
+        
+        for product_list in results:
+            if product_list:
+                all_products_unified.extend(product_list)
+                
+    return all_products_unified
