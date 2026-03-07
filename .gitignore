@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Node.js
+web/node_modules/
+web/dist/
+
+# IDE files
+.vscode/
+
+# Project Data 
+data/results/
+*.json
+!cba_definition.json
+*.pdf
+*.txt

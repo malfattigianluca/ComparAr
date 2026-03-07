@@ -1,0 +1,261 @@
+[
+    {
+        "category_name": "Pan",
+        "quantity_kg_per_month": 6.75,
+        "search_terms": [
+            "pan felipe",
+            "pan flauta",
+            "pan lactal blanco",
+            "pan frances"
+        ]
+    },
+    {
+        "category_name": "Galletitas de agua",
+        "quantity_kg_per_month": 0.42,
+        "search_terms": [
+            "galletitas de agua",
+            "galletitas criollitas",
+            "galletitas express"
+        ]
+    },
+    {
+        "category_name": "Galletitas dulces",
+        "quantity_kg_per_month": 0.21,
+        "search_terms": [
+            "galletitas dulces",
+            "galletitas surtidas",
+            "galletitas vocacion"
+        ]
+    },
+    {
+        "category_name": "Arroz",
+        "quantity_kg_per_month": 1.20,
+        "search_terms": [
+            "arroz blanco largo fino",
+            "arroz no se pasa"
+        ]
+    },
+    {
+        "category_name": "Harina de trigo",
+        "quantity_kg_per_month": 1.08,
+        "search_terms": [
+            "harina de trigo 000",
+            "harina 000"
+        ]
+    },
+    {
+        "category_name": "Otras harinas",
+        "quantity_kg_per_month": 0.21,
+        "search_terms": [
+            "harina de maiz",
+            "polenta"
+        ]
+    },
+    {
+        "category_name": "Fideos",
+        "quantity_kg_per_month": 1.74,
+        "search_terms": [
+            "fideos tallarines",
+            "fideos mostachol",
+            "fideos tirabuzon"
+        ]
+    },
+    {
+        "category_name": "Papa",
+        "quantity_kg_per_month": 6.51,
+        "search_terms": [
+            "papa blanca",
+            "papa negra"
+        ]
+    },
+    {
+        "category_name": "Batata",
+        "quantity_kg_per_month": 0.51,
+        "search_terms": [
+            "batata"
+        ]
+    },
+    {
+        "category_name": "Azucar",
+        "quantity_kg_per_month": 1.23,
+        "search_terms": [
+            "azucar blanca comun",
+            "azucar comun"
+        ]
+    },
+    {
+        "category_name": "Dulces",
+        "quantity_kg_per_month": 0.33,
+        "search_terms": [
+            "dulce de leche",
+            "dulce de batata",
+            "mermelada durazno"
+        ]
+    },
+    {
+        "category_name": "Legumbres secas",
+        "quantity_kg_per_month": 0.24,
+        "search_terms": [
+            "lentejas secas",
+            "arvejas secas"
+        ]
+    },
+    {
+        "category_name": "Hortalizas",
+        "quantity_kg_per_month": 5.73,
+        "search_terms": [
+            "acelga",
+            "cebolla",
+            "lechuga",
+            "tomate perita",
+            "zanahoria",
+            "zapallo"
+        ]
+    },
+    {
+        "category_name": "Frutas",
+        "quantity_kg_per_month": 4.95,
+        "search_terms": [
+            "manzana",
+            "mandarina",
+            "naranja",
+            "banana",
+            "pera"
+        ]
+    },
+    {
+        "category_name": "Carnes",
+        "quantity_kg_per_month": 6.27,
+        "search_terms": [
+            "asado",
+            "carnaza",
+            "espinazo",
+            "paleta",
+            "carne picada",
+            "nalga",
+            "pollo"
+        ]
+    },
+    {
+        "category_name": "Menudencias",
+        "quantity_kg_per_month": 0.27,
+        "search_terms": [
+            "higado bovino"
+        ]
+    },
+    {
+        "category_name": "Fiambres",
+        "quantity_kg_per_month": 0.06,
+        "search_terms": [
+            "paleta cocida",
+            "salame"
+        ]
+    },
+    {
+        "category_name": "Huevos",
+        "quantity_kg_per_month": 0.60,
+        "search_terms": [
+            "huevos blancos",
+            "huevos colorados"
+        ]
+    },
+    {
+        "category_name": "Leche",
+        "quantity_lt_per_month": 9.27,
+        "search_terms": [
+            "leche entera sachet",
+            "leche descremada sachet",
+            "leche entera larga vida"
+        ]
+    },
+    {
+        "category_name": "Queso",
+        "quantity_kg_per_month": 0.33,
+        "search_terms": [
+            "queso crema",
+            "queso cuartirolo",
+            "queso fresco",
+            "queso cremoso",
+            "queso de rallar"
+        ]
+    },
+    {
+        "category_name": "Yogur",
+        "quantity_kg_per_month": 0.57,
+        "search_terms": [
+            "yogur entero",
+            "yogur bebible"
+        ]
+    },
+    {
+        "category_name": "Manteca",
+        "quantity_kg_per_month": 0.06,
+        "search_terms": [
+            "manteca"
+        ]
+    },
+    {
+        "category_name": "Aceite",
+        "quantity_lt_per_month": 1.20,
+        "search_terms": [
+            "aceite de girasol",
+            "aceite girasol"
+        ]
+    },
+    {
+        "category_name": "Bebidas no alcoholicas",
+        "quantity_lt_per_month": 3.45,
+        "search_terms": [
+            "gaseosa cola",
+            "jugo concentrado",
+            "soda"
+        ]
+    },
+    {
+        "category_name": "Bebidas alcoholicas",
+        "quantity_lt_per_month": 1.08,
+        "search_terms": [
+            "cerveza rubia",
+            "vino tinto"
+        ]
+    },
+    {
+        "category_name": "Sal fina",
+        "quantity_kg_per_month": 0.12,
+        "search_terms": [
+            "sal fina",
+            "sal de mesa"
+        ]
+    },
+    {
+        "category_name": "Condimentos",
+        "quantity_kg_per_month": 0.12,
+        "search_terms": [
+            "mayonesa",
+            "caldo concentrado"
+        ]
+    },
+    {
+        "category_name": "Vinagre",
+        "quantity_lt_per_month": 0.06,
+        "search_terms": [
+            "vinagre de alcohol",
+            "vinagre de vino"
+        ]
+    },
+    {
+        "category_name": "Cafe",
+        "quantity_kg_per_month": 0.03,
+        "search_terms": [
+            "cafe molido",
+            "cafe instantaneo"
+        ]
+    },
+    {
+        "category_name": "Yerba",
+        "quantity_kg_per_month": 0.51,
+        "search_terms": [
+            "yerba mate"
+        ]
+    }
+]
