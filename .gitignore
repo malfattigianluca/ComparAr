@@ -17,3 +17,4 @@ data/results/
 !cba_definition.json
 *.pdf
 *.txt
+!requirements.txt
