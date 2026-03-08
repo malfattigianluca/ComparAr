@@ -4,14 +4,13 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import ProductDetail from './pages/ProductDetail';
 import CompareCart from './pages/CompareCart';
-import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="app-container">
+      <div className="min-h-screen">
         <Navbar />
-        <main style={{ padding: '2rem 0' }}>
+        <main className="max-w-6xl mx-auto px-4 pb-16">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/product/:id" element={<ProductDetail />} />

@@ -1,32 +1,25 @@
-import React, { useState } from 'react';
-import { ShoppingCart, ShoppingBag, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingBag, AlertCircle, Loader2, Trophy } from 'lucide-react';
+import { compareCart } from '../api/client';
 
-const API_URL = 'http://localhost:8000';
-
-const CompareCart: React.FC = () => {
+export default function CompareCart() {
     const [eansInput, setEansInput] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleCompare = async () => {
         if (!eansInput.trim()) return;
-
-        // Parse EANs, supporting comma or newline separation
         const eans = eansInput.split(/[\s,]+/).filter(ean => ean.trim().length > 5);
         if (!eans.length) return;
 
         setLoading(true);
+        setError('');
         try {
-            const payload = eans.map(ean => ({ ean, quantity: 1 })); // Default qty 1
-            const res = await fetch(`${API_URL}/compare/cart`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                setResults(await res.json());
-            }
+            const data = await compareCart(eans.map(ean => ({ ean, quantity: 1 })));
+            setResults(data);
         } catch (err) {
+            setError('Error al comparar. Verificá los códigos EAN e intentá de nuevo.');
             console.error(err);
         } finally {
             setLoading(false);
@@ -34,99 +27,95 @@ const CompareCart: React.FC = () => {
     };
 
     return (
-        <div className="container animate-fade-in">
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <h2 style={{ fontSize: '2.5rem', marginBottom: '16px' }}>Comparador de Carritos</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Ingresa los codigos EAN de los productos para ver en qué supermercado te conviene comprar.</p>
+        <div className="animate-fade-in-up">
+            <div className="text-center mb-10">
+                <h2 className="text-3xl font-extrabold mb-3">Comparador de Carritos</h2>
+                <p className="text-text-secondary max-w-lg mx-auto">
+                    Ingresá los códigos EAN de los productos para ver en qué supermercado te conviene comprar.
+                </p>
             </div>
 
-            <div className="glass-panel" style={{ padding: '24px', marginBottom: '40px' }}>
-                <label style={{ display: 'block', marginBottom: '12px', fontWeight: 500 }}>
-                    Codigos EAN (separados por coma o salto de linea)
+            <div className="glass-panel p-6 mb-10 max-w-2xl mx-auto">
+                <label className="block mb-3 font-medium text-sm">
+                    Códigos EAN (separados por coma o salto de línea)
                 </label>
                 <textarea
-                    className="input-field"
-                    style={{ minHeight: '120px', resize: 'vertical', fontFamily: 'monospace', marginBottom: '16px' }}
+                    id="ean-input"
+                    className="w-full min-h-28 resize-y bg-black/20 border border-glass-border rounded-xl p-4 text-text-primary font-mono text-sm placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all mb-4"
                     placeholder="Ej: 7790895000997, 7790040001855..."
                     value={eansInput}
                     onChange={e => setEansInput(e.target.value)}
                 />
-                <button className="btn-primary" style={{ width: '100%' }} onClick={handleCompare} disabled={loading}>
-                    {loading ? 'Calculando...' : 'Comparar Precios Totales'}
+                <button
+                    id="compare-button"
+                    className="w-full h-12 rounded-xl bg-accent hover:bg-accent-dark text-white font-semibold transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 disabled:opacity-50"
+                    onClick={handleCompare}
+                    disabled={loading}
+                >
+                    {loading ? <Loader2 size={22} className="animate-spin mx-auto" /> : 'Comparar Precios Totales'}
                 </button>
             </div>
 
+            {error && (
+                <div className="glass-panel border-danger/30 p-4 max-w-2xl mx-auto mb-8 flex items-center gap-3 text-danger">
+                    <AlertCircle size={18} /> <span>{error}</span>
+                </div>
+            )}
+
             {results.length > 0 && (
                 <div>
-                    <h3 style={{ marginBottom: '24px' }}>Mejores opciones</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-                        {results.map((sm, i) => (
-                            <div key={sm.supermarket} className="glass-panel" style={{
-                                padding: '24px',
-                                border: i === 0 ? '2px solid var(--accent-color)' : undefined,
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}>
+                    <h3 className="text-xl font-semibold mb-6">Resultados</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        {results.map((sm: any, i: number) => (
+                            <div
+                                key={sm.supermarket}
+                                className={`glass-panel p-6 relative overflow-hidden transition-all ${i === 0 ? 'border-accent/50 ring-1 ring-accent/20' : ''}`}
+                            >
                                 {i === 0 && (
-                                    <div style={{
-                                        position: 'absolute', top: 0, right: 0,
-                                        background: 'var(--accent-color)', color: '#fff',
-                                        padding: '4px 24px', fontSize: '0.8rem', fontWeight: 700,
-                                        transform: 'translate(25%, 50%) rotate(45deg)',
-                                        transformOrigin: 'bottom'
-                                    }}>
-                                        GANADOR
+                                    <div className="absolute top-3 right-3">
+                                        <Trophy size={20} className="text-accent" />
                                     </div>
                                 )}
 
-                                <span className={`badge badge-${sm.supermarket}`} style={{ marginBottom: '16px', fontSize: '1rem', padding: '6px 16px' }}>
+                                <span className={`badge-${sm.supermarket} text-sm px-3 py-1 rounded-full font-semibold uppercase tracking-wide inline-block mb-4`}>
                                     {sm.supermarket}
                                 </span>
 
-                                <div style={{ margin: '20px 0' }}>
-                                    <div style={{ fontSize: '2.5rem', fontWeight: 800, color: i === 0 ? 'var(--accent-color)' : '#fff' }}>
+                                <div className="mb-4">
+                                    <div className={`text-3xl font-extrabold ${i === 0 ? 'text-accent' : ''}`}>
                                         ${sm.total_price.toLocaleString('es-AR')}
                                     </div>
-                                    <div style={{ color: 'var(--text-muted)' }}>
-                                        Encontrados {sm.found_items_count} de {sm.found_items_count + sm.missing_items.length} productos
+                                    <div className="text-text-secondary text-sm mt-1">
+                                        {sm.found_items_count} de {sm.found_items_count + sm.missing_items.length} productos encontrados
                                     </div>
                                 </div>
 
                                 {sm.missing_items.length > 0 && (
-                                    <div style={{
-                                        background: 'rgba(255, 171, 0, 0.1)',
-                                        border: '1px solid rgba(255, 171, 0, 0.2)',
-                                        padding: '12px', borderRadius: '8px', marginBottom: '20px',
-                                        display: 'flex', gap: '12px', alignItems: 'flex-start'
-                                    }}>
-                                        <AlertCircle size={20} color="#ffab00" style={{ flexShrink: 0 }} />
-                                        <div style={{ fontSize: '0.85rem', color: '#ffea9e' }}>
+                                    <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 flex gap-3 items-start mb-4 text-sm">
+                                        <AlertCircle size={16} className="text-warning shrink-0 mt-0.5" />
+                                        <div className="text-warning/80">
                                             <strong>Faltan:</strong> {sm.missing_items.join(', ')}
                                         </div>
                                     </div>
                                 )}
 
-                                <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
-                                    <h4 style={{ fontSize: '0.9rem', marginBottom: '12px', color: 'var(--text-muted)' }}>Desglose:</h4>
-                                    <div style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '10px' }}>
+                                <div className="border-t border-glass-border pt-4">
+                                    <h4 className="text-xs text-text-muted uppercase tracking-wide mb-3">Desglose</h4>
+                                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
                                         {sm.items.map((item: any) => (
-                                            <div key={item.ean} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', alignItems: 'center' }}>
-                                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={item.name}>
+                                            <div key={item.ean} className="flex justify-between text-sm items-center">
+                                                <span className="truncate max-w-[180px] text-text-secondary" title={item.name}>
                                                     {item.quantity}x {item.name}
                                                 </span>
-                                                <span style={{ fontWeight: 600 }}>${item.price_total.toLocaleString('es-AR')}</span>
+                                                <span className="font-semibold ml-2">${item.price_total.toLocaleString('es-AR')}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <a
-                                    href={`#`} // TODO: Add redirect generator to specific market
-                                    className="btn-primary"
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', marginTop: '24px', padding: '12px', background: 'rgba(255,255,255,0.1)', border: '1px solid var(--glass-border)' }}
-                                >
-                                    <ShoppingBag size={18} /> Llenar Carrito en {sm.supermarket.toUpperCase()}
-                                </a>
+                                <button className="w-full mt-5 py-3 rounded-xl bg-white/5 border border-glass-border text-text-primary hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-sm font-medium cursor-pointer">
+                                    <ShoppingBag size={16} /> Ir a {sm.supermarket.charAt(0).toUpperCase() + sm.supermarket.slice(1)}
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -134,6 +123,4 @@ const CompareCart: React.FC = () => {
             )}
         </div>
     );
-};
-
-export default CompareCart;
+}
