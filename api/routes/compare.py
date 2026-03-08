@@ -10,6 +10,7 @@ async def compare_cart(items: List[CartItemRequest] = Body(...)):
     """
     Accepts a list of EANs and quantities.
     Returns the total cost for the exact cart in Coto, Dia, and Carrefour.
+    Uses latest_prices for instant lookups.
     """
     if not items:
         raise HTTPException(status_code=400, detail="Cart cannot be empty")
@@ -18,37 +19,21 @@ async def compare_cart(items: List[CartItemRequest] = Body(...)):
     quantities = {item.ean: item.quantity for item in items}
     
     query = """
-        WITH latest_prices AS (
-            SELECT 
-                l.id as listing_id,
-                l.ean,
-                l.supermarket_id,
-                s.code as supermarket_code,
-                l.name,
-                l.url_web,
-                l.image_url,
-                (
-                   SELECT price_final 
-                   FROM price_snapshots ps 
-                   WHERE ps.listing_id = l.id 
-                   ORDER BY scraped_at DESC LIMIT 1
-                ) as price_final
-            FROM listings l
-            JOIN supermarket s ON s.id = l.supermarket_id
-            WHERE l.ean = ANY(%s)
-        )
         SELECT 
-            supermarket_code,
-            ean,
-            name,
-            url_web,
-            image_url,
-            price_final
-        FROM latest_prices
-        WHERE price_final IS NOT NULL
+            s.code as supermarket_code,
+            l.ean,
+            l.name,
+            l.url_web,
+            l.image_url,
+            lp.price_final
+        FROM listings l
+        JOIN supermarket s ON s.id = l.supermarket_id
+        JOIN latest_prices lp ON lp.listing_id = l.id
+        WHERE l.ean = ANY(%s)
+          AND lp.price_final IS NOT NULL
     """
     
-    supermarkets_data = {}
+    supermarkets_data: dict = {}
     
     async with get_db() as db:
         async with db.cursor() as cursor:
