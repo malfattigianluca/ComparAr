@@ -4,7 +4,7 @@ import time
 import asyncio
 from datetime import datetime
 
-from data.db import persist_market_snapshot
+from data.db import persist_market_snapshot, refresh_latest_prices
 from scrapers.coto_scraper import (
     get_categories_slugs_coto, 
     get_products_coto
@@ -108,6 +108,7 @@ def run_carrefour():
         print(f"TOTAL {market_name.upper()}: {total_saved} products saved.")
         print(f"Saved snapshot: {filepath}")
         persist_market_online(market_name, url_market, all_products_unified)
+        refresh_latest_prices(market_name)
     else:
         print(f"TOTAL {market_name.upper()}: 0 products saved.")
 
@@ -155,6 +156,7 @@ def run_dia():
         print(f"TOTAL {market_name.upper()}: {total_saved} products saved.")
         print(f"Saved snapshot: {filepath}")
         persist_market_online(market_name, url_market, all_products_unified)
+        refresh_latest_prices(market_name)
     else:
         print(f"TOTAL {market_name.upper()}: 0 products saved.")
 
@@ -187,6 +189,7 @@ def run_coto():
 
         print(f"TOTAL {market_name.upper()}: {len(allProducts)} products saved.")
         persist_market_online(market_name, url_market, allProducts)
+        refresh_latest_prices(market_name)
     except Exception as e:
         print(f"{market_name.upper()}: failed to save file - Error: {e}")
 
