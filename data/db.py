@@ -276,8 +276,10 @@ def persist_market_snapshot(
     market = _market_meta(market_code, market_url)
 
     try:
-        with psycopg.connect(db_url, autocommit=False) as connection:
+        with psycopg.connect(db_url, autocommit=True) as connection:
             _ensure_schema(connection)
+
+            first_error_printed = False
 
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -292,75 +294,77 @@ def persist_market_snapshot(
                         continue
 
                     try:
-                        source_product_id = _build_source_product_id(product)
-                        ean = _normalize_ean(product.get("ean"))
-                        name = (str(product.get("name") or "").strip() or "SIN_NOMBRE")
-                        category = (str(product.get("category") or "").strip() or "sin-categoria")
-                        category_path = (
-                            str(product.get("categoryPath") or "").strip() or f"/{category}/"
-                        )
+                        with connection.transaction():
+                            source_product_id = _build_source_product_id(product)
+                            ean = _normalize_ean(product.get("ean"))
+                            name = (str(product.get("name") or "").strip() or "SIN_NOMBRE")
+                            category = (str(product.get("category") or "").strip() or "sin-categoria")
+                            category_path = (
+                                str(product.get("categoryPath") or "").strip() or f"/{category}/"
+                            )
 
-                        product_id = None
-                        if ean:
+                            product_id = None
+                            if ean:
+                                cursor.execute(
+                                    UPSERT_PRODUCT,
+                                    (
+                                        ean,
+                                        name,
+                                        product.get("brand"),
+                                        _to_decimal(product.get("contentAmount")),
+                                        product.get("contentUnit"),
+                                        product.get("envase"),
+                                    ),
+                                )
+                                product_id = cursor.fetchone()[0]
+
                             cursor.execute(
-                                UPSERT_PRODUCT,
+                                UPSERT_LISTING,
                                 (
+                                    supermarket_id,
+                                    source_product_id,
+                                    product_id,
                                     ean,
                                     name,
                                     product.get("brand"),
-                                    _to_decimal(product.get("contentAmount")),
-                                    product.get("contentUnit"),
+                                    _to_int(product.get("brand_id")),
+                                    product.get("link") or "",
+                                    product.get("image"),
+                                    category,
+                                    category_path,
                                     product.get("envase"),
+                                    product.get("measurementUnit") or product.get("contentUnit"),
+                                    _to_decimal(product.get("unitMultiplier")),
+                                    _jsonb(_build_extra(product)),
                                 ),
                             )
-                            product_id = cursor.fetchone()[0]
+                            listing_id = cursor.fetchone()[0]
 
-                        cursor.execute(
-                            UPSERT_LISTING,
-                            (
-                                supermarket_id,
-                                source_product_id,
-                                product_id,
-                                ean,
-                                name,
-                                product.get("brand"),
-                                _to_int(product.get("brand_id")),
-                                product.get("link") or "",
-                                product.get("image"),
-                                category,
-                                category_path,
-                                product.get("envase"),
-                                product.get("measurementUnit") or product.get("contentUnit"),
-                                _to_decimal(product.get("unitMultiplier")),
-                                _jsonb(_build_extra(product)),
-                            ),
-                        )
-                        listing_id = cursor.fetchone()[0]
+                            cursor.execute(
+                                INSERT_SNAPSHOT,
+                                (
+                                    listing_id,
+                                    _parse_scraped_at(product.get("scrapedAt")),
+                                    "ARS",
+                                    _to_decimal(product.get("regularPrice")),
+                                    _to_decimal(product.get("effectivePrice")),
+                                    _to_decimal(product.get("regularReferencePrice")),
+                                    _to_decimal(product.get("effectiveReferencePrice")),
+                                    _to_decimal(product.get("contentAmount")),
+                                    product.get("contentUnit"),
+                                    _to_int(product.get("unitsPerPack")),
+                                    _jsonb(product),
+                                ),
+                            )
 
-                        cursor.execute(
-                            INSERT_SNAPSHOT,
-                            (
-                                listing_id,
-                                _parse_scraped_at(product.get("scrapedAt")),
-                                "ARS",
-                                _to_decimal(product.get("regularPrice")),
-                                _to_decimal(product.get("effectivePrice")),
-                                _to_decimal(product.get("regularReferencePrice")),
-                                _to_decimal(product.get("effectiveReferencePrice")),
-                                _to_decimal(product.get("contentAmount")),
-                                product.get("contentUnit"),
-                                _to_int(product.get("unitsPerPack")),
-                                _jsonb(product),
-                            ),
-                        )
+                            if cursor.rowcount == 1:
+                                result["snapshots_inserted"] += 1
 
-                        if cursor.rowcount == 1:
-                            result["snapshots_inserted"] += 1
-
-                    except Exception:
+                    except Exception as e:
+                        if not first_error_printed:
+                            print(f"First DB error for {market['code']}: {type(e).__name__}: {e}")
+                            first_error_printed = True
                         result["errors"] += 1
-
-            connection.commit()
 
         result["enabled"] = True
         return result
@@ -370,3 +374,46 @@ def persist_market_snapshot(
         result["error"] = str(exc)
         return result
 
+
+REFRESH_LATEST_PRICES_SQL = """
+    INSERT INTO latest_prices (listing_id, scraped_at, price_list, price_final, price_per_unit_list, price_per_unit_final, updated_at)
+    SELECT listing_id, scraped_at, price_list, price_final, price_per_unit_list, price_per_unit_final, now()
+    FROM (
+        SELECT ps.listing_id, ps.scraped_at, ps.price_list, ps.price_final,
+               ps.price_per_unit_list, ps.price_per_unit_final,
+               ROW_NUMBER() OVER (PARTITION BY ps.listing_id ORDER BY ps.scraped_at DESC) AS rn
+        FROM price_snapshots ps
+        JOIN listings l ON l.id = ps.listing_id
+        JOIN supermarket s ON s.id = l.supermarket_id
+        WHERE s.code = %s
+    ) sub
+    WHERE rn = 1
+    ON CONFLICT (listing_id) DO UPDATE SET
+        scraped_at = EXCLUDED.scraped_at,
+        price_list = EXCLUDED.price_list,
+        price_final = EXCLUDED.price_final,
+        price_per_unit_list = EXCLUDED.price_per_unit_list,
+        price_per_unit_final = EXCLUDED.price_per_unit_final,
+        updated_at = now();
+"""
+
+
+def refresh_latest_prices(market_code: str) -> dict[str, Any]:
+    """Refresh latest_prices table for a specific market after scraping."""
+    result = {"success": False, "market": market_code}
+
+    db_url = get_database_url()
+    if not db_url or psycopg is None:
+        result["reason"] = "db_not_available"
+        return result
+
+    try:
+        with psycopg.connect(db_url, autocommit=True) as conn:
+            conn.execute(REFRESH_LATEST_PRICES_SQL, (market_code,))
+            result["success"] = True
+            print(f"latest_prices refreshed for {market_code}.")
+    except Exception as exc:
+        result["error"] = str(exc)
+        print(f"Error refreshing latest_prices for {market_code}: {exc}")
+
+    return result

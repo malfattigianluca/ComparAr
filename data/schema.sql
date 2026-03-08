@@ -65,3 +65,23 @@ CREATE INDEX IF NOT EXISTS idx_listing_extra_gin ON listings USING gin (extra);
 CREATE INDEX IF NOT EXISTS idx_snapshot_raw_gin ON price_snapshots USING gin (raw);
 CREATE INDEX IF NOT EXISTS idx_snapshot_scraped_at ON price_snapshots(scraped_at DESC);
 CREATE INDEX IF NOT EXISTS idx_listings_product_id ON listings(product_id);
+
+CREATE TABLE IF NOT EXISTS latest_prices (
+    listing_id BIGINT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+    scraped_at TIMESTAMPTZ NOT NULL,
+    price_list NUMERIC(12,2),
+    price_final NUMERIC(12,2),
+    price_per_unit_list NUMERIC(12,4),
+    price_per_unit_final NUMERIC(12,4),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS cba_monthly (
+    id BIGSERIAL PRIMARY KEY,
+    month DATE NOT NULL,
+    supermarket_code TEXT NOT NULL,
+    total_cost NUMERIC(12,2) NOT NULL,
+    items_found INT NOT NULL DEFAULT 0,
+    calculated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (month, supermarket_code)
+);
