@@ -2,6 +2,7 @@ import json
 import os
 import time
 import asyncio
+import argparse
 from datetime import datetime
 
 from data.db import persist_market_snapshot, refresh_latest_prices
@@ -197,8 +198,26 @@ def run_coto():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run supermarket scrapers.")
+    parser.add_argument(
+        "supermarket", 
+        nargs="?", 
+        choices=["carrefour", "dia", "coto", "all"], 
+        default="all", 
+        help="The specific supermarket to scrape (carrefour, dia, coto). Defaults to all."
+    )
+    
+    args = parser.parse_args()
+
     start_time = time.time()
-    run_carrefour()
-    run_dia()
-    run_coto()
-    print(f"Total time: {round((time.time() - start_time)/60, 2)} minutes.")
+    
+    if args.supermarket in ["carrefour", "all"]:
+        run_carrefour()
+        
+    if args.supermarket in ["dia", "all"]:
+        run_dia()
+        
+    if args.supermarket in ["coto", "all"]:
+        run_coto()
+        
+    print(f"Total time for {args.supermarket}: {round((time.time() - start_time)/60, 2)} minutes.")
