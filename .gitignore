@@ -15,6 +15,10 @@ web/dist/
 data/results/
 *.json
 !cba_definition.json
+!web/package.json
+!web/package-lock.json
+!web/tsconfig.json
+!web/tsconfig.*.json
 *.pdf
 *.txt
 !requirements.txt
