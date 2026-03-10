@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
 interface SearchParams {
     q: string;
@@ -41,7 +41,7 @@ export function fixEncoding(text: string | null): string {
 }
 
 export async function searchProducts(params: SearchParams): Promise<SearchResponse> {
-    const url = new URL(`${API_BASE}/products/search`);
+    const url = new URL(`${API_BASE}/products/search`, window.location.origin);
     url.searchParams.set('q', params.q);
     if (params.sort_by) url.searchParams.set('sort_by', params.sort_by);
     if (params.markets) url.searchParams.set('markets', params.markets);
