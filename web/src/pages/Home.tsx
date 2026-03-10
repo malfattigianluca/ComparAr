@@ -58,11 +58,6 @@ function getGenericCategory(raw: string | null, productName?: string): string {
 }
 
 
-const MARKET_COLORS: Record<string, string> = {
-    coto: '#e11d48',
-    dia: '#dc2626',
-    carrefour: '#2563eb',
-};
 
 export default function Home() {
     const [query, setQuery] = useState('');
