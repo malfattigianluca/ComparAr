@@ -15,6 +15,8 @@ web/dist/
 data/results/
 *.json
 !cba_definition.json
+!vercel.json
+!package.json
 !web/package.json
 !web/package-lock.json
 !web/tsconfig.json

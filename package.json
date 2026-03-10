@@ -1,0 +1,6 @@
+{
+    "name": "comparar-deployment",
+    "scripts": {
+        "build": "cd web && npm install && npm run build"
+    }
+}
