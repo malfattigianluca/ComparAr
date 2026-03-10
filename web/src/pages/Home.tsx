@@ -382,7 +382,7 @@ export default function Home() {
                                                             </div>
                                                         </Link>
                                                         {item.url_web && (
-                                                            <a href={item.url_web} target="_blank" rel="noopener noreferrer" title="Ver en la tienda" className="p-2 rounded-lg hover:bg-accent/10 text-text-muted hover:text-accent transition-all shrink-0">
+                                                            <a href={item.url_web} target="_blank" rel="noopener noreferrer" title="Ver en la tienda" onClick={e => e.stopPropagation()} className="p-2 rounded-lg hover:bg-accent/10 text-text-muted hover:text-accent transition-all shrink-0">
                                                                 <ExternalLink size={14} />
                                                             </a>
                                                         )}
