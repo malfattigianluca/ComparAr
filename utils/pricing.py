@@ -38,16 +38,24 @@ def pick_prices(offer: dict):
     if not offer:
         return None, None
 
-    effective_price = (
+    # Prioritize ListPrice to avoid capturing promotional discounts
+    regular_price = (
+        pos(offer.get("ListPrice")) or
+        pos(offer.get("PriceWithoutDiscount"))
+    )
+
+    effective_price = regular_price or (
         pos(offer.get("spotPrice")) or
         pos(offer.get("Price")) or
-        pos(offer.get("sellingPrice")) or
-        pos(offer.get("ListPrice"))
+        pos(offer.get("sellingPrice"))
     )
+
     if effective_price is None:
         return None, None
 
-    regular_price = pos(offer.get("ListPrice")) or effective_price
+    if regular_price is None:
+        regular_price = effective_price
+
     return effective_price, regular_price
 
 
