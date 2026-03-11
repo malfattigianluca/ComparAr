@@ -1,9 +1,9 @@
-
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import ProductDetail from './pages/ProductDetail';
 import CompareCart from './pages/CompareCart';
+import CbaHistory from './pages/CbaHistory';
 
 function App() {
   return (
@@ -15,6 +15,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/compare" element={<CompareCart />} />
+            <Route path="/cba" element={<CbaHistory />} />
           </Routes>
         </main>
       </div>

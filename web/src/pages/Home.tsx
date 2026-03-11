@@ -12,6 +12,8 @@ const SORT_OPTIONS = [
     { value: 'name', label: 'Alfabético' },
 ];
 
+const INDEC_FAMILY_MULTIPLIER = 3.09;
+
 function getGenericCategory(raw: string | null, productName?: string): string {
     const c = (raw || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const n = (productName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -75,12 +77,15 @@ export default function Home() {
     // CBA
     const [cbaHistory, setCbaHistory] = useState<any[]>([]);
     const [loadingCba, setLoadingCba] = useState(true);
+    const [cbaMode, setCbaMode] = useState<'individual' | 'familia'>('individual');
+    const [cbaPeriod, setCbaPeriod] = useState<3 | 6 | 12 | 'all'>('all');
 
     useEffect(() => {
         getCBAHistory()
             .then(data => {
                 if (data.history) {
                     setCbaHistory(data.history.map((h: any) => ({
+                        dateObj: new Date(h.date),
                         date: new Date(h.date).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }),
                         cost: Math.round(h.min_cba * 100) / 100,
                     })));
@@ -154,7 +159,29 @@ export default function Home() {
         for (const item of filteredResults) {
             const key = item.ean || item.name;
             if (!groups[key]) {
-                groups[key] = { name: item.name, ean: item.ean, brand: item.brand, image_url: item.image_url, listings: [] };
+                groups[key] = { 
+                    name: item.name, 
+                    ean: item.ean, 
+                    brand: item.brand, 
+                    image_url: item.image_url, 
+                    listings: [],
+                    all_images: item.image_url ? [item.image_url] : []
+                };
+            } else {
+                if (item.image_url && !groups[key].all_images.includes(item.image_url)) {
+                    groups[key].all_images.push(item.image_url);
+                }
+                
+                // Prioritize Coto or Dia images over Carrefour because Carrefour images often 403/404
+                const currentImg = groups[key].image_url || "";
+                const isCurrentBad = !currentImg || currentImg.includes('carrefour');
+                const isNewBetter = item.image_url && !item.image_url.includes('carrefour');
+                
+                if (isCurrentBad && isNewBetter) {
+                    groups[key].image_url = item.image_url;
+                } else if (!currentImg && item.image_url) {
+                    groups[key].image_url = item.image_url;
+                }
             }
             groups[key].listings.push(item);
         }
@@ -250,13 +277,34 @@ export default function Home() {
             {/* CBA Dashboard — show only when no search results */}
             {results.length === 0 && !loading && (
                 <div className="glass-panel p-6 mb-12">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="bg-success/20 p-2.5 rounded-xl">
-                            <TrendingUp size={22} className="text-success" />
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-success/20 p-2.5 rounded-xl">
+                                <TrendingUp size={22} className="text-success" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold">Costo Canasta Básica Alimentaria</h2>
+                                <p className="text-text-secondary text-sm">
+                                    {cbaMode === 'individual' 
+                                        ? 'Evolución mensual adulto equivalente (mínimo)' 
+                                        : 'Evolución mensual familia tipo INDEC (mínimo)'}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-semibold">Costo Canasta Básica Alimentaria</h2>
-                            <p className="text-text-secondary text-sm">Evolución mensual del adulto equivalente (mínimo)</p>
+                        <div className="flex overflow-hidden rounded-xl border border-glass-border bg-black/20 text-xs shrink-0">
+                            <button 
+                                onClick={() => setCbaMode('individual')} 
+                                className={`px-4 py-2 uppercase tracking-wider font-semibold transition-colors ${cbaMode === 'individual' ? 'bg-accent/20 text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                            >
+                                Individuo
+                            </button>
+                            <div className="w-px bg-glass-border"></div>
+                            <button 
+                                onClick={() => setCbaMode('familia')} 
+                                className={`px-4 py-2 uppercase tracking-wider font-semibold transition-colors ${cbaMode === 'familia' ? 'bg-accent/20 text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                            >
+                                Familia Tipo
+                            </button>
                         </div>
                     </div>
 
@@ -265,19 +313,82 @@ export default function Home() {
                             <Loader2 className="animate-spin text-text-muted" size={32} />
                         </div>
                     ) : cbaHistory.length > 0 ? (
-                        <div className="h-72 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={cbaHistory} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
-                                    <XAxis dataKey="date" stroke="#5a5a6e" tick={{ fill: '#8b8b9e', fontSize: 12 }} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#5a5a6e" tick={{ fill: '#8b8b9e', fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v.toLocaleString('es-AR')}`} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#16161f', border: '1px solid #ffffff14', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                                        formatter={(value: any) => [`$${Number(value || 0).toLocaleString('es-AR')}`, 'Costo Mínimo']}
-                                    />
-                                    <Line type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
+                        <div className="flex flex-col">
+                            {/* Filter & Stats Header */}
+                            {(() => {
+                                const sortedHistory = [...cbaHistory].sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+                                const recentOptions = cbaPeriod === 'all' 
+                                    ? sortedHistory 
+                                    : sortedHistory.slice(-cbaPeriod);
+                                
+                                const currentCost = recentOptions[recentOptions.length - 1]?.cost * (cbaMode === 'familia' ? INDEC_FAMILY_MULTIPLIER : 1);
+                                const previousCost = sortedHistory[sortedHistory.length - 2]?.cost * (cbaMode === 'familia' ? INDEC_FAMILY_MULTIPLIER : 1);
+                                const oldestCost = recentOptions[0]?.cost * (cbaMode === 'familia' ? INDEC_FAMILY_MULTIPLIER : 1);
+                                
+                                const periodPct = oldestCost ? ((currentCost - oldestCost) / oldestCost) * 100 : 0;
+                                const monthPct = previousCost ? ((currentCost - previousCost) / previousCost) * 100 : 0;
+                                
+                                return (
+                                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-glass-border">
+                                        <div className="flex gap-2">
+                                            {[3, 6, 12, 'all'].map((p) => (
+                                                <button
+                                                    key={p}
+                                                    onClick={() => setCbaPeriod(p as any)}
+                                                    className={`px-3 py-1 text-xs rounded-lg transition-all border ${cbaPeriod === p ? 'bg-black/30 text-white font-semibold border-glass-border' : 'border-transparent text-text-muted hover:text-text-secondary'}`}
+                                                >
+                                                    {p === 'all' ? 'Todo' : `${p}M`}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-6 text-right">
+                                            {sortedHistory.length > 1 && (
+                                                <div>
+                                                    <p className="text-[10px] uppercase text-text-muted font-bold tracking-widest mb-1">Último mes</p>
+                                                    <p className={`text-sm font-bold flex items-center justify-end gap-1 ${monthPct > 0 ? 'text-danger' : monthPct < 0 ? 'text-success' : 'text-text-secondary'}`}>
+                                                        {monthPct > 0 ? '+' : ''}{monthPct.toFixed(1)}%
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {recentOptions.length > 1 && cbaPeriod !== 'all' && (
+                                                <div>
+                                                    <p className="text-[10px] uppercase text-text-muted font-bold tracking-widest mb-1">En {cbaPeriod} meses</p>
+                                                    <p className={`text-sm font-bold flex items-center justify-end gap-1 ${periodPct > 0 ? 'text-danger' : periodPct < 0 ? 'text-success' : 'text-text-secondary'}`}>
+                                                        {periodPct > 0 ? '+' : ''}{periodPct.toFixed(1)}%
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            <div className="h-72 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart 
+                                        data={(cbaPeriod === 'all' ? cbaHistory : [...cbaHistory].sort((a,b) => a.dateObj.getTime() - b.dateObj.getTime()).slice(-cbaPeriod)).map(d => ({
+                                            ...d, 
+                                            displayCost: d.cost * (cbaMode === 'familia' ? INDEC_FAMILY_MULTIPLIER : 1)
+                                        }))} 
+                                        margin={{ top: 5, right: 20, bottom: 5, left: 20 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                                        <XAxis dataKey="date" stroke="#5a5a6e" tick={{ fill: '#8b8b9e', fontSize: 12 }} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#5a5a6e" tick={{ fill: '#8b8b9e', fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v.toLocaleString('es-AR')}`} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#16161f', border: '1px solid #ffffff14', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                                            formatter={(value: any) => [`$${Number(value || 0).toLocaleString('es-AR')}`, 'Costo Mínimo']}
+                                        />
+                                        <Line type="monotone" dataKey="displayCost" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                            
+                            <div className="flex justify-end mt-4 pt-4 border-t border-glass-border">
+                                <Link to="/cba" className="px-5 py-2 rounded-xl bg-black/20 border border-glass-border text-sm font-semibold hover:border-accent/40 hover:text-accent transition-all uppercase tracking-wider">
+                                    Historial Completo
+                                </Link>
+                            </div>
                         </div>
                     ) : (
                         <p className="text-text-muted text-center py-8">No hay datos suficientes para calcular la CBA.</p>
@@ -331,10 +442,19 @@ export default function Home() {
                                     <div className="glass-panel p-5 flex flex-col hover:scale-[1.01] transition-transform cursor-pointer h-full">
                                         <div className="flex gap-4 mb-4">
                                             <img
-                                                src={group.image_url || 'https://via.placeholder.com/100'}
+                                                src={group.image_url || 'https://placehold.co/100x100/16161f/8b8b9e?text=Sin+Foto'}
                                                 alt={fixEncoding(group.name)}
                                                 className="w-20 h-20 object-contain bg-white rounded-xl p-1 shrink-0"
-                                                onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100'; }}
+                                                onError={e => {
+                                                    const img = e.target as HTMLImageElement;
+                                                    // Try next image if available, else fallback
+                                                    const currentIdx = group.all_images?.indexOf(img.src) ?? -1;
+                                                    if (group.all_images && currentIdx < group.all_images.length - 1 && currentIdx !== -1) {
+                                                        img.src = group.all_images[currentIdx + 1];
+                                                    } else {
+                                                        img.src = 'https://placehold.co/100x100/16161f/8b8b9e?text=Sin+Foto';
+                                                    }
+                                                }}
                                             />
                                             <div className="min-w-0">
                                                 <h4 className="font-semibold text-sm leading-tight line-clamp-2">{fixEncoding(group.name)}</h4>
