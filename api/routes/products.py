@@ -115,7 +115,7 @@ async def get_product_detail(listing_id: str):
                 SELECT l.id::text, l.name, l.brand, l.ean, l.image_url, l.url_web,
                        l.category, l.measurement_unit, l.unit_multiplier, l.envase,
                        s.code as supermarket_code,
-                       lp.price_final, lp.price_per_unit_final
+                       lp.price_final, lp.price_per_unit_final, lp.updated_at as price_updated_at
                 FROM listings l
                 JOIN supermarket s ON s.id = l.supermarket_id
                 LEFT JOIN latest_prices lp ON lp.listing_id = l.id
@@ -132,7 +132,7 @@ async def get_product_detail(listing_id: str):
                 await cursor.execute("""
                     SELECT l.id::text, l.name, l.brand, l.ean, l.image_url, l.url_web,
                            s.code as supermarket_code,
-                           lp.price_final, lp.price_per_unit_final,
+                           lp.price_final, lp.price_per_unit_final, lp.updated_at as price_updated_at,
                            l.measurement_unit, l.unit_multiplier
                     FROM listings l
                     JOIN supermarket s ON s.id = l.supermarket_id
@@ -145,14 +145,22 @@ async def get_product_detail(listing_id: str):
             if not all_listings:
                 all_listings = [listing] if listing.get('price_final') else []
             
-            # Get price history for this listing
-            await cursor.execute("""
-                SELECT scraped_at, price_final, price_list
-                FROM price_snapshots
-                WHERE listing_id = %s::INT8
-                ORDER BY scraped_at ASC
-            """, (listing_id,))
-            history = await cursor.fetchall()
+            # Get price history for ALL listings for this product
+            history = {}
+            for lst in all_listings:
+                # ROW_NUMBER() OVER(PARTITION BY DATE) gets one snapshot per day (the latest one)
+                await cursor.execute("""
+                    SELECT scraped_at, price_final, price_list
+                    FROM (
+                        SELECT scraped_at, price_final, price_list,
+                               ROW_NUMBER() OVER(PARTITION BY DATE(scraped_at) ORDER BY scraped_at DESC) as rn
+                        FROM price_snapshots
+                        WHERE listing_id = %s::INT8
+                    ) t
+                    WHERE rn = 1
+                    ORDER BY scraped_at ASC
+                """, (lst['id'],))
+                history[lst['supermarket_code']] = await cursor.fetchall()
     
     return {
         "product": listing,
@@ -162,11 +170,16 @@ async def get_product_detail(listing_id: str):
 
 @router.get("/{listing_id}/history")
 async def get_price_history(listing_id: str):
-    """Get the price history for a specific listing. Accepts string ID to avoid BigInt issues."""
+    """Get the price history for a specific listing (daily aggregated)."""
     query = """
         SELECT scraped_at, price_final, price_list
-        FROM price_snapshots
-        WHERE listing_id = %s::INT8
+        FROM (
+            SELECT scraped_at, price_final, price_list,
+                   ROW_NUMBER() OVER(PARTITION BY DATE(scraped_at) ORDER BY scraped_at DESC) as rn
+            FROM price_snapshots
+            WHERE listing_id = %s::INT8
+        ) t
+        WHERE rn = 1
         ORDER BY scraped_at ASC
     """
     async with get_db() as db:
@@ -175,7 +188,7 @@ async def get_price_history(listing_id: str):
             results = await cursor.fetchall()
             
     if not results:
-        raise HTTPException(status_code=404, detail="No history found")
+        return []
         
     return results
 
