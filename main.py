@@ -22,8 +22,8 @@ DIA_CATEGORIES_PARAMS = {
 }
 
 CARREFOUR_CATEGORIES_PARAMS = {
-    "hash_value": "5415e7bbf2b8b17612811bd41448e2de5e5ac97a68b586a6b84bed5697e2e2e5",
-    "sender": "carrefourar.mega-menu@0.x", 
+    "hash_value": "bb8b98c8d17d81dc9e4829210d0ee040e436be73119814c4903087139e6b7b14",
+    "sender": "carrefourar.mega-menu@0.x",
     "provider": "carrefourar.mega-menu@0.x"
 }
 
