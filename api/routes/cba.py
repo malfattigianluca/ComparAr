@@ -1,10 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from api.utils.db import get_db
+from api.models.schemas import CBAResponse
 
 router = APIRouter(prefix="/cba", tags=["cba"])
 
 
-@router.get("/history")
+@router.get("/history", response_model=CBAResponse)
 async def get_cba_history():
     """
     Get the historical cost of the Canasta Basica Alimentaria.
@@ -20,31 +21,32 @@ async def get_cba_history():
                 """)
                 rows = await cur.fetchall()
 
-                if not rows:
-                    return {"status": "success", "history": []}
+        if not rows:
+            return {"status": "success", "history": []}
 
-                # Group by month → compute min across supermarkets
-                months_data: dict = {}
-                for row in rows:
-                    month_str = row["month"].strftime("%Y-%m-%d") if hasattr(row["month"], "strftime") else str(row["month"])
-                    if month_str not in months_data:
-                        months_data[month_str] = {"by_supermarket": {}}
-                    months_data[month_str]["by_supermarket"][row["supermarket_code"]] = float(row["total_cost"])
+        # Agrupar por mes → calcular mínimo entre supermercados
+        months_data: dict = {}
+        for row in rows:
+            month_str = (
+                row["month"].strftime("%Y-%m-%d")
+                if hasattr(row["month"], "strftime")
+                else str(row["month"])
+            )
+            if month_str not in months_data:
+                months_data[month_str] = {"by_supermarket": {}}
+            months_data[month_str]["by_supermarket"][row["supermarket_code"]] = float(row["total_cost"])
 
-                history = []
-                for date, data in sorted(months_data.items()):
-                    costs = list(data["by_supermarket"].values())
-                    history.append({
-                        "date": date,
-                        "min_cba": min(costs) if costs else 0,
-                        "by_supermarket": data["by_supermarket"]
-                    })
+        history = []
+        for date, data in sorted(months_data.items()):
+            costs = list(data["by_supermarket"].values())
+            history.append({
+                "date": date,
+                "min_cba": min(costs) if costs else 0,
+                "by_supermarket": data["by_supermarket"],
+            })
 
-                return {
-                    "status": "success",
-                    "history": history
-                }
+        return {"status": "success", "history": history}
 
     except Exception as e:
         print(f"Error fetching CBA history: {e}")
-        return {"error": str(e), "history": []}
+        raise HTTPException(status_code=500, detail=str(e))
