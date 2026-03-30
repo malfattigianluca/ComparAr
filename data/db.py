@@ -19,6 +19,10 @@ except Exception:  # pragma: no cover - handled at runtime
 DB_ENV_VARS = ("COMPARAR_DATABASE_URL", "DATABASE_URL")
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
+# Evita re-aplicar el schema en cada llamada a persist_market_snapshot.
+# Se marca True la primera vez que se ejecuta exitosamente.
+_schema_applied = False
+
 MARKETS = {
     "carrefour": {
         "code": "carrefour",
@@ -191,6 +195,10 @@ def _market_meta(market_code: str, market_url: str | None) -> dict[str, str]:
 
 
 def _ensure_schema(connection) -> None:
+    global _schema_applied
+    if _schema_applied:
+        return
+
     if not SCHEMA_PATH.exists():
         raise FileNotFoundError(f"Schema file not found: {SCHEMA_PATH}")
 
@@ -199,6 +207,8 @@ def _ensure_schema(connection) -> None:
 
     for statement in statements:
         connection.execute(statement)
+
+    _schema_applied = True
 
 
 def _build_source_product_id(product: dict[str, Any]) -> str:

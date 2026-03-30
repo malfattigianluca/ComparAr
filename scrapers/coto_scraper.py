@@ -1,11 +1,12 @@
-from ast import parse
-from sys import base_prefix
-from bs4 import BeautifulSoup
-import os, json, requests, time, math, re, random
+import json, requests, time, math, re, random
 from datetime import datetime
 
-start_time = time.time()
-market_name = "coto"
+
+def _decode_response(r: requests.Response) -> dict:
+    """Decodifica la respuesta forzando UTF-8 para evitar mojibake y literales \\uXXXX."""
+    return json.loads(r.content.decode("utf-8"))
+
+MARKET_NAME = "coto"
 
 
 
@@ -55,7 +56,7 @@ def get_categories_slugs_coto(url_market):
         return []
 
     try:
-        data = response_categories.json()
+        data = _decode_response(response_categories)
         output_list = data.get("output", [])
     except Exception as e:
         print(f"Error parsing JSON: {e}")
@@ -124,7 +125,7 @@ def safe_get_json(url, headers, max_tries=10, timeout=20, base_sleep=0.6):
                 snippet = text[:120].replace("\n", " ")
                 raise ValueError(f"Non-JSON body (ct={ct}) snippet='{snippet}'")
 
-            return r.json()
+            return _decode_response(r)
 
         except Exception as e:
             last_err = e
@@ -360,7 +361,7 @@ def get_products_coto(url_market, categories):
         try:
             response_init = requests.get(url=url_base, headers=headers)
             response_init.raise_for_status()
-            data_init = response_init.json()
+            data_init = _decode_response(response_init)
         except Exception as e:
             print(f"Initial error in {display_name}: {e}")
             continue
@@ -389,13 +390,7 @@ def get_products_coto(url_market, categories):
             )
 
             try:
-                response_by_page = requests.get(url=url_by_page, headers=headers)
-                response_by_page.raise_for_status()
-                try:
-                    data_by_page = safe_get_json(url_by_page, headers)
-                except Exception as e:
-                    print(f"Error page {display_name} {page}: {e}")
-                    continue
+                data_by_page = safe_get_json(url_by_page, headers)
             except Exception as e:
                 print(f"Error page {display_name} {page}: {e}")
                 continue
@@ -522,7 +517,7 @@ def get_products_coto(url_market, categories):
                             effective_reference_price = round(effective_reference_price, 2)
 
                         filtered = {
-                            "source": market_name,
+                            "source": MARKET_NAME,
                             "scrapedAt": scraped_at,
 
                             "name": name,

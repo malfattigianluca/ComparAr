@@ -48,7 +48,6 @@ def safe_div(numerator, denominator):
         return None
     return numerator / denominator
 
-import re
 
 def parse_content(name: str):
     if not name:
