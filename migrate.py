@@ -1,8 +1,16 @@
 """Run database migrations for latest_prices and cba_monthly tables."""
+import os
+import sys
 import psycopg
 from pathlib import Path
+from dotenv import load_dotenv
 
-DATABASE_URL = "postgresql://malfattigianluca:ACmDynLRB1WHkk6SGsaWEQ@smiley-bunny-22979.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=require"
+load_dotenv()
+
+DATABASE_URL = os.getenv("COMPARAR_DATABASE_URL") or os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("ERROR: Set COMPARAR_DATABASE_URL (or DATABASE_URL) before running migrations.")
+    sys.exit(1)
 
 migration_file = Path(__file__).parent / "data" / "latest_prices_migration.sql"
 sql = migration_file.read_text(encoding="utf-8")
@@ -14,7 +22,7 @@ with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         statement = statement.strip()
         if statement:
             conn.execute(statement)
-    
+
     # Populate latest_prices from existing price_snapshots
     print("Populating latest_prices from existing data (this may take a minute)...")
     conn.execute("""
