@@ -1,6 +1,7 @@
 beautifulsoup4>=4.12
 idna>=3.10
 psycopg[binary]>=3.2
+psycopg-pool>=3.2
 requests>=2.32
 fastapi
 uvicorn
