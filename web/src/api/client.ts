@@ -17,9 +17,15 @@ export interface SearchResponse {
 }
 
 /**
- * Fix encoding issues from scrapers:
- * - Coto uses literal \u00XX escape sequences
- * - Dia has UTF-8→Latin-1 mojibake (Ã³ → ó)
+ * Safety net para datos con encoding incorrecto almacenados antes del fix
+ * del lado del scraper (forzado UTF-8 en aiohttp/requests).
+ *
+ * Casos cubiertos:
+ * - Literales \u00XX que no fueron decodificados al persistir (Coto legacy)
+ * - Mojibake UTF-8→Latin-1 (Día legacy): Ã³ → ó
+ *
+ * Con los scrapers corregidos, esta función no debería tener efecto en datos
+ * nuevos, pero se mantiene para datos históricos ya en DB.
  */
 export function fixEncoding(text: string | null): string {
     if (!text) return '';
