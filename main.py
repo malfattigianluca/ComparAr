@@ -23,7 +23,7 @@ VTEX_MARKETS = {
     "carrefour": {
         "url": "https://www.carrefour.com.ar",
         "categories_params": {
-            "hash_value": "bb8b98c8d17d81dc9e4829210d0ee040e436be73119814c4903087139e6b7b14",
+            "hash_value": "823787add87738768b74a9246699764aacab9c6e2ca5783173e2aac6ec4b3eda",
             "sender": "carrefourar.mega-menu@0.x",
             "provider": "carrefourar.mega-menu@0.x",
         },
