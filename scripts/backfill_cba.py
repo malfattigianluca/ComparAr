@@ -1,17 +1,31 @@
 """
 Backfill cba_monthly from existing price_snapshots data.
-Uses INDEC CBA definition with correct monthly quantities for an adulto equivalente.
+Delegates to data/cba.py which centralizes the CBA logic and item definitions.
 
-INDEC source: Canasta Basica Alimentaria del adulto equivalente (varon 30-60 años)
-Quantities are in monthly kilograms/liters/units as per INDEC definition.
+Usage:
+    COMPARAR_DATABASE_URL=<url> python scripts/backfill_cba.py
 """
+import sys
+import os
+
+# Add project root to path so data/ is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from data.cba import CBA_ITEMS, calculate_cba_for_month  # noqa: F401 (re-exported for compatibility)
+
 import psycopg
 
-DATABASE_URL = "postgresql://malfattigianluca:ACmDynLRB1WHkk6SGsaWEQ@smiley-bunny-22979.j77.aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=require"
+db_url = os.getenv("COMPARAR_DATABASE_URL") or os.getenv("DATABASE_URL")
+if not db_url:
+    print("Error: set COMPARAR_DATABASE_URL or DATABASE_URL before running.")
+    sys.exit(1)
+
+DATABASE_URL = db_url
 
 # INDEC CBA definition for the "adulto equivalente"
 # Format: (name, search_keywords, monthly_kg_or_liters, reference_unit)
 # reference_unit: "kg" means we need price_per_kg, "lt" means price_per_liter, "unit" means price per unit
+# NOTE: CBA_ITEMS is now defined in data/cba.py — imported above.
 CBA_ITEMS = [
     # Cereales y derivados
     ("Pan",                "pan francés OR pan blanco",     6.060, "kg"),
@@ -96,7 +110,7 @@ def find_cheapest_per_unit(conn, sm_id, month, search_term, unit):
 
 
 print("Connecting...")
-with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+with psycopg.connect(db_url, autocommit=True) as conn:
     # Clear old CBA data
     conn.execute("DELETE FROM cba_monthly WHERE 1=1")
     print("Cleared old CBA data")

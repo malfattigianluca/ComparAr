@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime
 
 from data.db import persist_market_snapshot, refresh_latest_prices
+from data.cba import update_cba_current_month
 from scrapers.coto_scraper import (
     get_categories_slugs_coto,
     get_products_coto,
@@ -187,5 +188,9 @@ if __name__ == "__main__":
 
     if args.supermarket in ("coto", "all"):
         run_coto()
+
+    if args.supermarket == "all":
+        print("Updating CBA for current month...")
+        update_cba_current_month()
 
     print(f"Total time for {args.supermarket}: {round((time.time() - start_time) / 60, 2)} minutes.")
