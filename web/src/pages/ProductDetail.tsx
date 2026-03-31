@@ -3,12 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowLeft, Loader2, ExternalLink, Tag, Barcode, Package } from 'lucide-react';
 import { getProductDetail, fixEncoding } from '../api/client';
-
-const MARKET_INFO: Record<string, { label: string; color: string; badgeClass: string }> = {
-    coto: { label: 'Coto', color: '#e11d48', badgeClass: 'badge-coto' },
-    dia: { label: 'Dia', color: '#f59e0b', badgeClass: 'badge-dia' },
-    carrefour: { label: 'Carrefour', color: '#2563eb', badgeClass: 'badge-carrefour' },
-};
+import { MARKET_INFO } from '../utils/markets';
 
 export default function ProductDetail() {
     const { id } = useParams();

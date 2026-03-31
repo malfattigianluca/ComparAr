@@ -1,8 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, Loader2, Filter, TrendingUp, X, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { searchProducts, getCBAHistory, fixEncoding } from '../api/client';
+import { searchProducts, fixEncoding } from '../api/client';
+import { getGenericCategory } from '../utils/categories';
+import { computeRefPrice } from '../utils/pricing';
+import { useCbaHistory } from '../hooks/useCbaHistory';
 
 const MARKETS = ['coto', 'dia', 'carrefour'] as const;
 const SORT_OPTIONS = [
@@ -13,53 +16,6 @@ const SORT_OPTIONS = [
 ];
 
 const INDEC_FAMILY_MULTIPLIER = 3.09;
-
-function getGenericCategory(raw: string | null, productName?: string): string {
-    const c = (raw || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const n = (productName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    // ---- Carnes & Pescados (check FIRST, before Frescos) ----
-    if (/bovin|carne|porc|avicol|pollo|milanesa|granja|pescad|mariscos|fiambre|embutid/.test(c)) return 'Carnes';
-    if (/carnes-y-pescados/.test(c)) return 'Carnes';
-    // Name-based fallback ONLY when category is generic/unknown (not snacks, almacen, etc.)
-    if (!c || /^(frescos?|congelados?)$/.test(c)) {
-        if (/\basado\b|\bbife\b|\bnalga\b|\bpicada\b|\bcostilla\b|\bvacio\b|\bmatambre\b|\bchorizo\b|\bmilanesa\b/.test(n)) return 'Carnes';
-    }
-
-    // ---- Lácteos ----
-    if (/lacteo|leche|yogur|queso|manteca|crema|lacteos-y-productos/.test(c)) return 'Lácteos';
-    if (/leche|yogur|queso|manteca/.test(n) && !/dulce de leche/.test(n)) return 'Lácteos';
-
-    // ---- Bebidas ----
-    if (/bebida|gaseosa|agua|vino|cerveza|jugo|soda|whisky|vodka|gin |aperitivo|espumante/.test(c)) return 'Bebidas';
-
-    // ---- Verduras & Frutas ----
-    if (/fruta|verdura|hortaliza|papa|cebolla|tomate|zanahoria|banana|naranja|manzana/.test(c)) return 'Frutas y Verduras';
-    if (/frutas-y-verduras/.test(c)) return 'Frutas y Verduras';
-
-    // ---- Frescos / Congelados (catch-all for "frescos" that didn't match above) ----
-    if (/fresco|congelado|refrigerad/.test(c)) return 'Frescos';
-
-    // ---- Panadería ----
-    if (/panaderia|panader|reposteria|galletita|pan |dona|alfajor/.test(c)) return 'Panadería';
-    if (/desayuno|merienda/.test(c)) return 'Desayuno';
-
-    // ---- Limpieza ----
-    if (/limpieza|detergente|lavandina|jabon|esponja|papel higienico|desinfectante/.test(c)) return 'Limpieza';
-
-    // ---- Perfumería / Cuidado ----
-    if (/perfumeria|cuidado|farmacia|bebe|salud|belleza|higiene|mundo-bebe/.test(c)) return 'Perfumería';
-
-    // ---- Hogar / Bazar ----
-    if (/hogar|bazar|electro|tecnolog|mascota|juguet|auto|librer|aire-libre|jardin|cuchillo|cubierto|utensilio/.test(c)) return 'Hogar';
-
-    // ---- Almacén (default) ----
-    if (/almacen|alimentos|aceite|arroz|harina|azucar|sal |snack|especialidad/.test(c)) return 'Almacén';
-
-    return 'Otros';
-}
-
-
 
 export default function Home() {
     const [query, setQuery] = useState('');
@@ -75,25 +31,9 @@ export default function Home() {
     const [totalResults, setTotalResults] = useState(0);
 
     // CBA
-    const [cbaHistory, setCbaHistory] = useState<any[]>([]);
-    const [loadingCba, setLoadingCba] = useState(true);
+    const { cbaHistory, loading: loadingCba } = useCbaHistory();
     const [cbaMode, setCbaMode] = useState<'individual' | 'familia'>('individual');
     const [cbaPeriod, setCbaPeriod] = useState<3 | 6 | 12 | 'all'>('all');
-
-    useEffect(() => {
-        getCBAHistory()
-            .then(data => {
-                if (data.history) {
-                    setCbaHistory(data.history.map((h: any) => ({
-                        dateObj: new Date(h.date),
-                        date: new Date(h.date).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }),
-                        cost: Math.round(h.min_cba * 100) / 100,
-                    })));
-                }
-            })
-            .catch(err => console.error('CBA error:', err))
-            .finally(() => setLoadingCba(false));
-    }, []);
 
     const toggleMarket = (m: string) => setMarkets(prev =>
         prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
@@ -464,22 +404,7 @@ export default function Home() {
 
                                         <div className="mt-auto flex flex-col gap-2">
                                             {group.listings.filter((item: any) => item.price_final != null).map((item: any) => {
-                                                // Compute reference price from name if not available
-                                                let refPrice = item.price_per_unit_final;
-                                                let refUnit = item.measurement_unit;
-                                                if (!refPrice && item.price_final && item.name) {
-                                                    const m = item.name.match(/(\d+[,.]?\d*)\s*(kg|g(?:r(?:m|s)?)?|lt?s?|ml|cc|u(?:n(?:i)?)?)\.?(?:\s|$)/i);
-                                                    if (m) {
-                                                        let qty = parseFloat(m[1].replace(',', '.'));
-                                                        const u = m[2].toLowerCase();
-                                                        if (u.startsWith('g') && !u.startsWith('ga')) qty = qty / 1000;
-                                                        else if (u === 'ml' || u === 'cc') qty = qty / 1000;
-                                                        if (qty > 0) {
-                                                            refPrice = (Number(item.price_final) / qty);
-                                                            refUnit = (u === 'ml' || u === 'cc' || u.startsWith('l')) ? 'lt' : (u.startsWith('g') || u === 'kg') ? 'kg' : 'un';
-                                                        }
-                                                    }
-                                                }
+                                                const { refPrice, refUnit } = computeRefPrice(item);
                                                 return (
                                                     <div key={item.id} className="flex items-center gap-1">
                                                         <Link to={`/product/${item.id}`} className="no-underline flex-1">
