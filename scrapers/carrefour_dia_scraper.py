@@ -271,6 +271,9 @@ async def scrapeProducts(
                 try:
                     raw = await resp.read()
                     data = _json.loads(raw.decode("utf-8"))
+                    if not isinstance(data, dict):
+                        print(f"[{market_name}] {category} - Unexpected response (not a dict) [{page_from}–{page_to}]")
+                        break
                 except Exception:
                     text = await resp.text(encoding="utf-8", errors="replace")
                     print(f"[{market_name}] {category} - JSON parse error [{page_from}–{page_to}]: {text[:200]}")
@@ -449,9 +452,14 @@ async def run_all_categories_async(
             )
             for cat in sorted(categories)
         ]
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    all_products = [product for product_list in results if product_list for product in product_list]
+    all_products = []
+    for r in results:
+        if isinstance(r, Exception):
+            print(f"[{market_name}] Task raised unhandled exception: {type(r).__name__}: {r}")
+        elif r:
+            all_products.extend(r)
 
     if not all_products:
         print(
