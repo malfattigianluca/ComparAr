@@ -147,7 +147,16 @@ def getCategoriesSlug(url_market, hash_value, sender, provider, market_name):
         print(f"[{market_name}] Error {response.status_code} fetching categories")
         return set()
 
-    menus = response.json().get("data", {}).get("menus", [])
+    body = response.json()
+    errors = body.get("errors")
+    if errors:
+        print(
+            f"[{market_name}] WARNING: categories query returned GraphQL errors "
+            f"(hash={hash_value!r}). The persisted query hash may be stale. "
+            f"Errors: {errors}"
+        )
+
+    menus = body.get("data", {}).get("menus", [])
 
     parser = _CATEGORY_PARSERS.get(market_name)
     if parser is None:
@@ -155,7 +164,16 @@ def getCategoriesSlug(url_market, hash_value, sender, provider, market_name):
         return set()
 
     all_slugs = parser(menus)
-    return {slug for slug in all_slugs if slug and not slug.isdigit()}
+    result = {slug for slug in all_slugs if slug and not slug.isdigit()}
+
+    if not result:
+        print(
+            f"[{market_name}] WARNING: 0 categories returned. "
+            f"The persisted query hash may be stale (hash={hash_value!r}). "
+            f"Check that the hash is still valid at {url}."
+        )
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -433,4 +451,13 @@ async def run_all_categories_async(
         ]
         results = await asyncio.gather(*tasks)
 
-    return [product for product_list in results if product_list for product in product_list]
+    all_products = [product for product_list in results if product_list for product in product_list]
+
+    if not all_products:
+        print(
+            f"[{market_name}] WARNING: 0 products scraped across all {len(categories)} categories. "
+            f"The persisted query hash may be stale (hash={hash_value!r}). "
+            f"Verify the hash is still valid for productSearchV3."
+        )
+
+    return all_products
