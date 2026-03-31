@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS listings (
     extra JSONB NOT NULL DEFAULT '{}'::JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    search_vector TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('simple',
+            coalesce(name, '') || ' ' ||
+            coalesce(brand, '') || ' ' ||
+            coalesce(ean, '') || ' ' ||
+            coalesce(category, '')
+        )
+    ) STORED,
     UNIQUE (supermarket_id, source_product_id)
 );
 
@@ -65,6 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_listing_extra_gin ON listings USING gin (extra);
 CREATE INDEX IF NOT EXISTS idx_snapshot_raw_gin ON price_snapshots USING gin (raw);
 CREATE INDEX IF NOT EXISTS idx_snapshot_scraped_at ON price_snapshots(scraped_at DESC);
 CREATE INDEX IF NOT EXISTS idx_listings_product_id ON listings(product_id);
+CREATE INDEX IF NOT EXISTS idx_listings_search ON listings USING GIN(search_vector);
 
 CREATE TABLE IF NOT EXISTS latest_prices (
     listing_id BIGINT PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
